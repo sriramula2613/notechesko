@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { motion } from "framer-motion";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -24,6 +25,7 @@ const Dashboard = () => {
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
+          .eq('user_id', user?.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -34,7 +36,7 @@ const Dashboard = () => {
             ...column,
             tasks: data?.filter(task => task.status === column.id) || [],
           };
-        });
+        }) as Column[];
 
         setColumns(newColumns);
       } catch (error: any) {
@@ -54,11 +56,27 @@ const Dashboard = () => {
   }, [user]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-white shadow-sm">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800"
+    >
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">TaskMate</h1>
-          <div className="flex items-center gap-4">
+          <motion.h1 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary/80"
+          >
+            TaskMate
+          </motion.h1>
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="flex items-center gap-4"
+          >
             <span className="text-sm text-muted-foreground">
               {user?.email}
             </span>
@@ -66,27 +84,47 @@ const Dashboard = () => {
               <LogOut className="h-4 w-4" />
               <span>Logout</span>
             </Button>
-          </div>
+          </motion.div>
         </div>
       </header>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900">Your Task Board</h2>
+        <motion.div 
+          className="mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Your Task Board</h2>
           <p className="text-muted-foreground">Drag and drop tasks to change their status</p>
-        </div>
+        </motion.div>
 
         {isLoading ? (
           <div className="h-[calc(100vh-200px)] flex items-center justify-center">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            <motion.div 
+              animate={{ 
+                rotate: 360,
+                transition: { 
+                  duration: 1.5, 
+                  repeat: Infinity, 
+                  ease: "linear" 
+                }
+              }}
+              className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full"
+            />
           </div>
         ) : (
-          <div className="h-[calc(100vh-200px)]">
+          <motion.div 
+            className="h-[calc(100vh-200px)]"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
             <KanbanBoard initialColumns={columns} />
-          </div>
+          </motion.div>
         )}
       </main>
-    </div>
+    </motion.div>
   );
 };
 

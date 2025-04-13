@@ -8,6 +8,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { motion } from "framer-motion";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface KanbanBoardProps {
   initialColumns: Column[];
@@ -69,7 +72,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         // Update the columns data locally
         setColumns(prevColumns => {
           // Create a deep copy of the columns
-          const updatedColumns = JSON.parse(JSON.stringify(prevColumns));
+          const updatedColumns = JSON.parse(JSON.stringify(prevColumns)) as Column[];
           
           // Remove task from its original column
           const sourceColumnIndex = updatedColumns.findIndex(
@@ -111,8 +114,8 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     setActiveTask(null);
   };
 
-  const handleAddTask = (status: string) => {
-    setNewTaskStatus(status as TaskStatus);
+  const handleAddTask = () => {
+    setNewTaskStatus("todo"); // Default to first column
     setEditingTask(null);
     setTaskDialogOpen(true);
   };
@@ -172,7 +175,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           .update({
             title: taskData.title,
             description: taskData.description,
-            status: taskData.status,
+            status: taskData.status as TaskStatus,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingTask.id);
@@ -188,6 +191,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
                 ? { 
                     ...task, 
                     ...taskData, 
+                    status: taskData.status as TaskStatus,
                     updated_at: new Date().toISOString() 
                   } 
                 : task
@@ -221,7 +225,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
             return prevColumns.map(column => ({
               ...column,
               tasks: column.id === data[0].status 
-                ? [data[0], ...column.tasks] 
+                ? [data[0] as Task, ...column.tasks] 
                 : column.tasks
             }));
           });
@@ -246,20 +250,38 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
 
   return (
     <>
+      <div className="mb-6 flex justify-end">
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <Button 
+            onClick={handleAddTask} 
+            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary shadow-md"
+          >
+            <Plus className="h-5 w-5 mr-1" /> Add Task
+          </Button>
+        </motion.div>
+      </div>
+
       <DndContext
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 h-full overflow-x-auto pb-4">
+        <div className="flex gap-6 h-full overflow-x-auto pb-4">
           {columns.map((column) => (
-            <TaskColumn
+            <motion.div 
               key={column.id}
-              column={column}
-              onAddTask={handleAddTask}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTaskStart}
-            />
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full min-w-[320px] max-w-[400px]"
+            >
+              <TaskColumn
+                column={column}
+                onAddTask={() => {}}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTaskStart}
+              />
+            </motion.div>
           ))}
         </div>
       </DndContext>
@@ -273,7 +295,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
