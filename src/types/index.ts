@@ -13,6 +13,9 @@ export interface Task {
   user_id: string;
   created_at: string;
   updated_at: string;
+  due_date?: string | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  tags?: string[] | null;
 }
 
 export type TaskStatus = 'todo' | 'progress' | 'completed';

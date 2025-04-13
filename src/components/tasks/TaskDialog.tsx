@@ -9,6 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Task, TaskStatus } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface TaskDialogProps {
   open: boolean;
@@ -22,6 +28,10 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [priority, setPriority] = useState<string | undefined>(undefined);
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -29,12 +39,18 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
   useEffect(() => {
     if (open && task) {
       setTitle(task.title);
-      setDescription(task.description);
+      setDescription(task.description || "");
       setStatus(task.status);
+      setDueDate(task.due_date ? new Date(task.due_date) : undefined);
+      setPriority(task.priority || undefined);
+      setTags(task.tags || []);
     } else if (open) {
       setTitle("");
       setDescription("");
       setStatus(initialStatus);
+      setDueDate(undefined);
+      setPriority(undefined);
+      setTags([]);
     }
   }, [open, task, initialStatus]);
 
@@ -57,6 +73,9 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
         title: title.trim(),
         description: description.trim(),
         status,
+        due_date: dueDate ? dueDate.toISOString() : null,
+        priority: priority || null,
+        tags: tags.length > 0 ? tags : null,
       };
 
       await onSave(taskData);
@@ -70,6 +89,17 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
   return (
@@ -135,6 +165,108 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="due_date" className="text-sm font-medium">Due Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        id="due_date"
+                        className={cn(
+                          "w-full justify-start text-left font-normal border-gray-200 dark:border-gray-700",
+                          !dueDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dueDate ? format(dueDate, "PPP") : <span>Set due date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-2 flex justify-between items-center border-b">
+                        <span className="text-sm font-medium">Select date</span>
+                        {dueDate && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2 text-muted-foreground"
+                            onClick={() => setDueDate(undefined)}
+                          >
+                            <X className="h-4 w-4 mr-1" /> Clear
+                          </Button>
+                        )}
+                      </div>
+                      <Calendar
+                        mode="single"
+                        selected={dueDate}
+                        onSelect={setDueDate}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
+                  <Select 
+                    value={priority || ""} 
+                    onValueChange={(value) => setPriority(value || undefined)}
+                  >
+                    <SelectTrigger className="border-gray-200 dark:border-gray-700 focus:ring-primary">
+                      <SelectValue placeholder="Set priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="" className="text-muted-foreground">None</SelectItem>
+                      <SelectItem value="high" className="text-red-600 font-medium">High</SelectItem>
+                      <SelectItem value="medium" className="text-amber-600 font-medium">Medium</SelectItem>
+                      <SelectItem value="low" className="text-green-600 font-medium">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tags" className="text-sm font-medium">Tags</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="tags"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Add a tag"
+                      className="border-gray-200 dark:border-gray-700 focus:ring-primary"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddTag();
+                        }
+                      }}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      onClick={handleAddTag}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {tags.map((tag, index) => (
+                        <Badge 
+                          key={index} 
+                          className="flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/20"
+                        >
+                          {tag}
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => handleRemoveTag(tag)} 
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <DialogFooter className="pt-2">
