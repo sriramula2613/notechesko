@@ -176,11 +176,17 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
             title: taskData.title,
             description: taskData.description,
             status: taskData.status as TaskStatus,
+            due_date: taskData.due_date,
+            priority: taskData.priority,
+            tags: taskData.tags,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingTask.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase update error:", error);
+          throw error;
+        }
         
         // Update task locally
         setColumns(prevColumns => {
@@ -192,6 +198,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
                     ...task, 
                     ...taskData, 
                     status: taskData.status as TaskStatus,
+                    due_date: taskData.due_date || null,
+                    priority: taskData.priority || null,
+                    tags: taskData.tags || [],
                     updated_at: new Date().toISOString() 
                   } 
                 : task
@@ -209,15 +218,22 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           title: taskData.title || "",
           description: taskData.description || "",
           status: taskData.status as TaskStatus || newTaskStatus,
+          due_date: taskData.due_date || null,
+          priority: taskData.priority || null,
+          tags: taskData.tags || [],
           user_id: user.id
         };
 
+        console.log("Creating new task:", newTask);
         const { data, error } = await supabase
           .from('tasks')
           .insert(newTask)
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase insert error:", error);
+          throw error;
+        }
 
         // Add new task to local state
         if (data && data[0]) {

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Task, TaskStatus } from "@/types";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
@@ -67,19 +67,27 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
     setIsSubmitting(true);
 
     try {
+      // Prepare task data with correct handling of optional fields
       const taskData = {
         ...(task && { id: task.id }),
         title: title.trim(),
-        description: description.trim(),
+        description: description.trim() || null,
         status,
         due_date: dueDate ? dueDate.toISOString() : null,
         priority: priority || null,
-        tags: tags.length > 0 ? tags : null,
+        tags: tags.length > 0 ? tags : [],
       };
 
+      console.log("Saving task data:", taskData);
       await onSave(taskData);
       onOpenChange(false);
+      
+      toast({
+        title: task ? "Task updated" : "Task created",
+        description: task ? "Your task has been updated successfully" : "Your new task has been created",
+      });
     } catch (error) {
+      console.error("Error saving task:", error);
       toast({
         variant: "destructive",
         title: "Failed to save task",
@@ -105,20 +113,20 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
     <AnimatePresence>
       {open && (
         <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+          <DialogContent className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[90vh] overflow-y-auto p-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-md">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <DialogHeader className="p-6 pb-2">
+              <DialogHeader className="p-6 pb-2 sticky top-0 bg-white dark:bg-gray-800 z-10">
                 <DialogTitle className="text-xl">
                   {task ? "Edit Task" : "Create New Task"}
                 </DialogTitle>
               </DialogHeader>
               
-              <form onSubmit={handleSubmit} className="space-y-4 p-6 pt-2">
+              <form onSubmit={handleSubmit} className="space-y-4 p-6 pt-2 overflow-y-auto">
                 <div className="space-y-2">
                   <Label htmlFor="title" className="text-sm font-medium">Title</Label>
                   <Input
@@ -138,7 +146,7 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Enter task details"
-                    className="border-gray-200 dark:border-gray-700 focus:ring-primary resize-none"
+                    className="border-gray-200 dark:border-gray-700 focus:ring-primary resize-none h-24"
                     rows={3}
                   />
                 </div>
@@ -251,7 +259,7 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                   </div>
                   
                   {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2 max-h-20 overflow-y-auto">
                       {tags.map((tag, index) => (
                         <Badge 
                           key={index} 
@@ -268,7 +276,7 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                   )}
                 </div>
                 
-                <DialogFooter className="pt-2">
+                <DialogFooter className="pt-4 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
                   <Button
                     type="button" 
                     variant="outline" 
