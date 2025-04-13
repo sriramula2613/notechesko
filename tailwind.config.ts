@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -25,12 +26,25 @@ export default {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					DEFAULT: '#9b87f5',
+					foreground: '#ffffff',
+					light: '#e5deff',
 				},
 				secondary: {
-					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					DEFAULT: '#7E69AB',
+					foreground: '#ffffff',
+				},
+				todo: {
+					DEFAULT: '#e5deff',
+					foreground: '#7E69AB',
+				},
+				progress: {
+					DEFAULT: '#D3E4FD',
+					foreground: '#4285F4',
+				},
+				completed: {
+					DEFAULT: '#E1F8E9',
+					foreground: '#34A853',
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -84,13 +98,19 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'task-highlight': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-5px)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'task-highlight': 'task-highlight 0.5s ease-in-out'
 			}
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
 } satisfies Config;
+
