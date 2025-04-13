@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Task, TaskStatus } from "@/types";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X } from "lucide-react";
@@ -29,13 +28,12 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [priority, setPriority] = useState<string | undefined>(undefined);
+  const [priority, setPriority] = useState<"high" | "medium" | "low" | undefined>(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Reset form when dialog opens/closes or task changes
   useEffect(() => {
     if (open && task) {
       setTitle(task.title);
@@ -212,7 +210,7 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                   <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
                   <Select 
                     value={priority || ""} 
-                    onValueChange={(value) => setPriority(value || undefined)}
+                    onValueChange={(value) => setPriority(value ? value as "high" | "medium" | "low" : undefined)}
                   >
                     <SelectTrigger className="border-gray-200 dark:border-gray-700 focus:ring-primary">
                       <SelectValue placeholder="Set priority" />
