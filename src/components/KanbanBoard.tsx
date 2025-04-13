@@ -6,6 +6,8 @@ import { TaskDialog } from "./tasks/TaskDialog";
 import { Column, Task, TaskStatus } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface KanbanBoardProps {
   initialColumns: Column[];
@@ -20,6 +22,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>("todo");
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -34,7 +37,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     // Optional: Handle drag over events if needed
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over) return;
@@ -51,41 +54,58 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     if (overId !== task.status) {
       const newStatus = overId as TaskStatus;
       
-      // Update the columns data
-      setColumns(prevColumns => {
-        // Create a deep copy of the columns
-        const updatedColumns = JSON.parse(JSON.stringify(prevColumns));
+      try {
+        // Update task in Supabase
+        const { error } = await supabase
+          .from('tasks')
+          .update({ 
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', task.id);
+
+        if (error) throw error;
         
-        // Remove task from its original column
-        const sourceColumnIndex = updatedColumns.findIndex(
-          (col: Column) => col.id === task.status
-        );
-        
-        if (sourceColumnIndex !== -1) {
-          updatedColumns[sourceColumnIndex].tasks = updatedColumns[sourceColumnIndex].tasks.filter(
-            (t: Task) => t.id !== task.id
+        // Update the columns data locally
+        setColumns(prevColumns => {
+          // Create a deep copy of the columns
+          const updatedColumns = JSON.parse(JSON.stringify(prevColumns));
+          
+          // Remove task from its original column
+          const sourceColumnIndex = updatedColumns.findIndex(
+            (col: Column) => col.id === task.status
           );
-        }
-        
-        // Add task to the destination column with updated status
-        const destColumnIndex = updatedColumns.findIndex(
-          (col: Column) => col.id === newStatus
-        );
-        
-        if (destColumnIndex !== -1) {
-          const updatedTask = { ...task, status: newStatus, updated_at: new Date().toISOString() };
-          updatedColumns[destColumnIndex].tasks.unshift(updatedTask);
-        }
-        
-        return updatedColumns;
-      });
+          
+          if (sourceColumnIndex !== -1) {
+            updatedColumns[sourceColumnIndex].tasks = updatedColumns[sourceColumnIndex].tasks.filter(
+              (t: Task) => t.id !== task.id
+            );
+          }
+          
+          // Add task to the destination column with updated status
+          const destColumnIndex = updatedColumns.findIndex(
+            (col: Column) => col.id === newStatus
+          );
+          
+          if (destColumnIndex !== -1) {
+            const updatedTask = { ...task, status: newStatus, updated_at: new Date().toISOString() };
+            updatedColumns[destColumnIndex].tasks.unshift(updatedTask);
+          }
+          
+          return updatedColumns;
+        });
 
-      toast({
-        title: "Task moved",
-        description: `"${task.title}" moved to ${columns.find(col => col.id === newStatus)?.title}`,
-      });
-
-      // In a real app with Supabase, you would update the task status in the database here
+        toast({
+          title: "Task moved",
+          description: `"${task.title}" moved to ${columns.find(col => col.id === newStatus)?.title}`,
+        });
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error updating task",
+          description: error.message || "Failed to update task status",
+        });
+      }
     }
     
     setActiveTask(null);
@@ -107,76 +127,121 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteTaskConfirm = () => {
+  const handleDeleteTaskConfirm = async () => {
     if (!taskToDelete) return;
 
-    setColumns(prevColumns => {
-      return prevColumns.map(column => ({
-        ...column,
-        tasks: column.tasks.filter(task => task.id !== taskToDelete)
-      }));
-    });
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskToDelete);
 
-    toast({
-      title: "Task deleted",
-      description: "The task has been deleted successfully",
-    });
+      if (error) throw error;
 
-    setDeleteDialogOpen(false);
-    setTaskToDelete(null);
+      setColumns(prevColumns => {
+        return prevColumns.map(column => ({
+          ...column,
+          tasks: column.tasks.filter(task => task.id !== taskToDelete)
+        }));
+      });
+
+      toast({
+        title: "Task deleted",
+        description: "The task has been deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error deleting task",
+        description: error.message || "Failed to delete task",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setTaskToDelete(null);
+    }
   };
 
   const handleSaveTask = async (taskData: Partial<Task>) => {
-    if (editingTask) {
-      // Update existing task
-      setColumns(prevColumns => {
-        return prevColumns.map(column => ({
-          ...column,
-          tasks: column.tasks.map(task => 
-            task.id === editingTask.id 
-              ? { 
-                  ...task, 
-                  ...taskData, 
-                  updated_at: new Date().toISOString() 
-                } 
-              : task
-          )
-        }));
-      });
+    if (!user) return Promise.reject(new Error("User not authenticated"));
+    
+    try {
+      if (editingTask) {
+        // Update existing task in Supabase
+        const { error } = await supabase
+          .from('tasks')
+          .update({
+            title: taskData.title,
+            description: taskData.description,
+            status: taskData.status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingTask.id);
 
+        if (error) throw error;
+        
+        // Update task locally
+        setColumns(prevColumns => {
+          return prevColumns.map(column => ({
+            ...column,
+            tasks: column.tasks.map(task => 
+              task.id === editingTask.id 
+                ? { 
+                    ...task, 
+                    ...taskData, 
+                    updated_at: new Date().toISOString() 
+                  } 
+                : task
+            )
+          }));
+        });
+
+        toast({
+          title: "Task updated",
+          description: "Your changes have been saved",
+        });
+      } else {
+        // Create new task in Supabase
+        const newTask = {
+          title: taskData.title || "",
+          description: taskData.description || "",
+          status: taskData.status as TaskStatus || newTaskStatus,
+          user_id: user.id
+        };
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert(newTask)
+          .select();
+
+        if (error) throw error;
+
+        // Add new task to local state
+        if (data && data[0]) {
+          setColumns(prevColumns => {
+            return prevColumns.map(column => ({
+              ...column,
+              tasks: column.id === data[0].status 
+                ? [data[0], ...column.tasks] 
+                : column.tasks
+            }));
+          });
+        }
+
+        toast({
+          title: "Task created",
+          description: "Your new task has been added",
+        });
+      }
+      
+      return Promise.resolve();
+    } catch (error: any) {
       toast({
-        title: "Task updated",
-        description: "Your changes have been saved",
+        variant: "destructive",
+        title: "Error saving task",
+        description: error.message || "Failed to save task",
       });
-    } else {
-      // Create new task with generated ID
-      const newTask: Task = {
-        id: `task-${Date.now()}`,
-        title: taskData.title || "",
-        description: taskData.description || "",
-        status: taskData.status as TaskStatus || newTaskStatus,
-        user_id: "current-user", // This would be replaced with actual user ID in Supabase implementation
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      setColumns(prevColumns => {
-        return prevColumns.map(column => ({
-          ...column,
-          tasks: column.id === newTask.status 
-            ? [newTask, ...column.tasks] 
-            : column.tasks
-        }));
-      });
-
-      toast({
-        title: "Task created",
-        description: "Your new task has been added",
-      });
+      return Promise.reject(error);
     }
-
-    // In a real app, we would save to Supabase here
-    return Promise.resolve();
   };
 
   return (

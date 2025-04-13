@@ -1,88 +1,72 @@
 
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Column, Task } from "@/types";
+import { Column } from "@/types";
 import { LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-
-// Sample data for demonstration
-const sampleColumns: Column[] = [
-  {
-    id: "todo",
-    title: "To Do",
-    color: "todo-foreground",
-    tasks: [
-      {
-        id: "task-1",
-        title: "Design landing page",
-        description: "Create wireframes and mockups for the landing page",
-        status: "todo",
-        user_id: "user-1",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: "task-2",
-        title: "Set up Supabase",
-        description: "Configure authentication and database schemas",
-        status: "todo",
-        user_id: "user-1",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-    ]
-  },
-  {
-    id: "progress",
-    title: "In Progress",
-    color: "progress-foreground",
-    tasks: [
-      {
-        id: "task-3",
-        title: "Implement drag and drop",
-        description: "Add dnd-kit for drag and drop functionality",
-        status: "progress",
-        user_id: "user-1",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-    ]
-  },
-  {
-    id: "completed",
-    title: "Completed",
-    color: "completed-foreground",
-    tasks: [
-      {
-        id: "task-4",
-        title: "Set up project",
-        description: "Initialize React app with Vite and install dependencies",
-        status: "completed",
-        user_id: "user-1",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-    ]
-  }
-];
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const [columns, setColumns] = useState<Column[]>([
+    { id: "todo", title: "To Do", color: "todo-foreground", tasks: [] },
+    { id: "progress", title: "In Progress", color: "progress-foreground", tasks: [] },
+    { id: "completed", title: "Completed", color: "completed-foreground", tasks: [] },
+  ]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLogout = () => {
-    // In a real app, this would call Supabase auth.signOut()
-    navigate("/");
-  };
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Group tasks by status
+        const newColumns = columns.map(column => {
+          return {
+            ...column,
+            tasks: data?.filter(task => task.status === column.id) || [],
+          };
+        });
+
+        setColumns(newColumns);
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error fetching tasks",
+          description: error.message || "Failed to load tasks",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchTasks();
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary">TaskMate</h1>
-          <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center gap-1">
-            <LogOut className="h-4 w-4" />
-            <span>Logout</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              {user?.email}
+            </span>
+            <Button variant="outline" size="sm" onClick={signOut} className="flex items-center gap-1">
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -92,9 +76,15 @@ const Dashboard = () => {
           <p className="text-muted-foreground">Drag and drop tasks to change their status</p>
         </div>
 
-        <div className="h-[calc(100vh-200px)]">
-          <KanbanBoard initialColumns={sampleColumns} />
-        </div>
+        {isLoading ? (
+          <div className="h-[calc(100vh-200px)] flex items-center justify-center">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+          </div>
+        ) : (
+          <div className="h-[calc(100vh-200px)]">
+            <KanbanBoard initialColumns={columns} />
+          </div>
+        )}
       </main>
     </div>
   );
