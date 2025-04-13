@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -209,14 +210,14 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
                 <div className="space-y-2">
                   <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
                   <Select 
-                    value={priority || ""} 
-                    onValueChange={(value) => setPriority(value ? value as "high" | "medium" | "low" : undefined)}
+                    value={priority || "none"} 
+                    onValueChange={(value) => setPriority(value === "none" ? undefined : value as "high" | "medium" | "low")}
                   >
                     <SelectTrigger className="border-gray-200 dark:border-gray-700 focus:ring-primary">
                       <SelectValue placeholder="Set priority" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="" className="text-muted-foreground">None</SelectItem>
+                      <SelectItem value="none" className="text-muted-foreground">None</SelectItem>
                       <SelectItem value="high" className="text-red-600 font-medium">High</SelectItem>
                       <SelectItem value="medium" className="text-amber-600 font-medium">Medium</SelectItem>
                       <SelectItem value="low" className="text-green-600 font-medium">Low</SelectItem>
