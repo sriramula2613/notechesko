@@ -86,6 +86,8 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
 
     try {
       // Prepare task data with correct handling of optional fields
+      const currentTime = new Date().toISOString();
+      
       const taskData = {
         ...(task && { id: task.id }),
         title: title.trim(),
@@ -94,12 +96,29 @@ export function TaskDialog({ open, onOpenChange, task, initialStatus = "todo", o
         due_date: dueDate ? dueDate.toISOString() : null,
         priority: priority || null,
         tags: tags.length > 0 ? tags : [],
-        subtasks: subtasks.map(({ id, title, completed, task_id }) => ({
-          id,
-          title,
-          completed,
-          task_id
-        })),
+        subtasks: subtasks.map(subtask => {
+          // For existing subtasks, preserve their timestamps
+          if (!subtask.id.startsWith('temp-')) {
+            return {
+              id: subtask.id,
+              title: subtask.title,
+              completed: subtask.completed,
+              task_id: subtask.task_id,
+              created_at: subtask.created_at,
+              updated_at: subtask.updated_at
+            };
+          }
+          
+          // For new subtasks, assign new timestamps
+          return {
+            id: subtask.id,
+            title: subtask.title,
+            completed: subtask.completed,
+            task_id: subtask.task_id || (task ? task.id : ''),
+            created_at: currentTime,
+            updated_at: currentTime
+          };
+        }),
       };
 
       console.log("Saving task data:", taskData);
