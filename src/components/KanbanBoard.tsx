@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
 import { TaskColumn } from "./tasks/TaskColumn";
@@ -136,34 +135,8 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   };
 
   const handleEditTask = (task: Task) => {
-    // Fetch the subtasks for this task
-    fetchSubtasks(task.id).then(subtasks => {
-      setEditingTask({ ...task, subtasks });
-      setTaskDialogOpen(true);
-    });
-  };
-
-  const fetchSubtasks = async (taskId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('subtasks')
-        .select('*')
-        .eq('task_id', taskId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
-      return data || [];
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error fetching subtasks",
-        description: error.message || "Failed to load subtasks",
-      });
-      return [];
-    }
+    setEditingTask(task);
+    setTaskDialogOpen(true);
   };
 
   const handleDeleteTaskStart = (taskId: string) => {
@@ -246,9 +219,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         // Handle subtasks - create, update or delete as needed
         await handleSubtasks(editingTask.id, subtasks);
         
-        // Update task locally
-        const updatedSubtasks = await fetchSubtasks(editingTask.id);
-        
+        // Update task locally with the latest subtasks
         setColumns(prevColumns => {
           return prevColumns.map(column => ({
             ...column,
@@ -257,7 +228,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
                 ? { 
                     ...task, 
                     ...taskData, 
-                    subtasks: updatedSubtasks,
+                    subtasks: subtasks,
                     status: taskData.status as TaskStatus,
                     due_date: taskData.due_date || null,
                     priority: taskData.priority || null,
@@ -308,14 +279,12 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
             await handleSubtasks(data[0].id, subtasks);
           }
           
-          // Fetch updated subtasks
-          const updatedSubtasks = await fetchSubtasks(data[0].id);
-          
+          // Update task locally with subtasks
           setColumns(prevColumns => {
             return prevColumns.map(column => ({
               ...column,
               tasks: column.id === data[0].status 
-                ? [{ ...data[0], subtasks: updatedSubtasks } as Task, ...column.tasks] 
+                ? [{ ...data[0], subtasks: subtasks } as Task, ...column.tasks] 
                 : column.tasks
             }));
           });
@@ -338,7 +307,6 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     }
   };
   
-  // Helper function to handle subtask operations
   const handleSubtasks = async (taskId: string, subtasks: Subtask[]) => {
     try {
       // Get current subtasks for this task

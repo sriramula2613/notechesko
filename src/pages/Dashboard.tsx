@@ -1,7 +1,6 @@
-
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Column } from "@/types";
+import { Column, Subtask } from "@/types";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,19 +21,43 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select('*')
           .eq('user_id', user?.id)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-
-        // Group tasks by status
+        if (tasksError) throw tasksError;
+        
+        let subtasksData: Subtask[] = [];
+        if (tasksData && tasksData.length > 0) {
+          const taskIds = tasksData.map(task => task.id);
+          
+          const { data: fetchedSubtasks, error: subtasksError } = await supabase
+            .from('subtasks')
+            .select('*')
+            .in('task_id', taskIds)
+            .order('created_at', { ascending: true });
+            
+          if (subtasksError) throw subtasksError;
+          subtasksData = fetchedSubtasks || [];
+        }
+        
+        const subtasksByTaskId: Record<string, Subtask[]> = {};
+        subtasksData.forEach(subtask => {
+          if (!subtasksByTaskId[subtask.task_id]) {
+            subtasksByTaskId[subtask.task_id] = [];
+          }
+          subtasksByTaskId[subtask.task_id].push(subtask);
+        });
+        
         const newColumns = columns.map(column => {
           return {
             ...column,
-            tasks: data?.filter(task => task.status === column.id) || [],
+            tasks: tasksData?.filter(task => task.status === column.id).map(task => ({
+              ...task,
+              subtasks: subtasksByTaskId[task.id] || []
+            })) || [],
           };
         }) as Column[];
 
