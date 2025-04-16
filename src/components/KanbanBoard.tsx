@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
 import { TaskColumn } from "./tasks/TaskColumn";
 import { TaskDialog } from "./tasks/TaskDialog";
-import { Column, Task, TaskStatus } from "@/types";
+import { Column, Task, TaskStatus, Subtask } from "@/types";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +56,21 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     // If dropped over a different column than its current status
     if (overId !== task.status) {
       const newStatus = overId as TaskStatus;
+      
+      // Prevent moving to completed if there are incomplete subtasks
+      if (newStatus === "completed") {
+        const subtasks = task.subtasks || [];
+        const allSubtasksCompleted = subtasks.length === 0 || subtasks.every(subtask => subtask.completed);
+        
+        if (!allSubtasksCompleted) {
+          toast({
+            variant: "destructive",
+            title: "Cannot complete task",
+            description: "All subtasks must be completed before marking the task as completed.",
+          });
+          return;
+        }
+      }
       
       try {
         // Update task in Supabase
@@ -121,8 +136,34 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
   };
 
   const handleEditTask = (task: Task) => {
-    setEditingTask(task);
-    setTaskDialogOpen(true);
+    // Fetch the subtasks for this task
+    fetchSubtasks(task.id).then(subtasks => {
+      setEditingTask({ ...task, subtasks });
+      setTaskDialogOpen(true);
+    });
+  };
+
+  const fetchSubtasks = async (taskId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('subtasks')
+        .select('*')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      return data || [];
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error fetching subtasks",
+        description: error.message || "Failed to load subtasks",
+      });
+      return [];
+    }
   };
 
   const handleDeleteTaskStart = (taskId: string) => {
@@ -134,6 +175,15 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     if (!taskToDelete) return;
 
     try {
+      // Delete subtasks first (though this should happen automatically with the ON DELETE CASCADE)
+      const { error: subtasksError } = await supabase
+        .from('subtasks')
+        .delete()
+        .eq('task_id', taskToDelete);
+
+      if (subtasksError) throw subtasksError;
+
+      // Then delete the task
       const { error } = await supabase
         .from('tasks')
         .delete()
@@ -169,6 +219,11 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
     
     try {
       if (editingTask) {
+        // Extract subtasks to handle separately
+        const subtasks = taskData.subtasks || [];
+        const taskWithoutSubtasks = { ...taskData };
+        delete taskWithoutSubtasks.subtasks;
+        
         // Update existing task in Supabase
         const { error } = await supabase
           .from('tasks')
@@ -188,7 +243,12 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           throw error;
         }
         
+        // Handle subtasks - create, update or delete as needed
+        await handleSubtasks(editingTask.id, subtasks);
+        
         // Update task locally
+        const updatedSubtasks = await fetchSubtasks(editingTask.id);
+        
         setColumns(prevColumns => {
           return prevColumns.map(column => ({
             ...column,
@@ -197,6 +257,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
                 ? { 
                     ...task, 
                     ...taskData, 
+                    subtasks: updatedSubtasks,
                     status: taskData.status as TaskStatus,
                     due_date: taskData.due_date || null,
                     priority: taskData.priority || null,
@@ -213,6 +274,11 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           description: "Your changes have been saved",
         });
       } else {
+        // Extract subtasks to handle separately
+        const subtasks = taskData.subtasks || [];
+        const taskWithoutSubtasks = { ...taskData };
+        delete taskWithoutSubtasks.subtasks;
+        
         // Create new task in Supabase
         const newTask = {
           title: taskData.title || "",
@@ -237,11 +303,19 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
 
         // Add new task to local state
         if (data && data[0]) {
+          // Handle subtasks if any
+          if (subtasks.length > 0) {
+            await handleSubtasks(data[0].id, subtasks);
+          }
+          
+          // Fetch updated subtasks
+          const updatedSubtasks = await fetchSubtasks(data[0].id);
+          
           setColumns(prevColumns => {
             return prevColumns.map(column => ({
               ...column,
               tasks: column.id === data[0].status 
-                ? [data[0] as Task, ...column.tasks] 
+                ? [{ ...data[0], subtasks: updatedSubtasks } as Task, ...column.tasks] 
                 : column.tasks
             }));
           });
@@ -260,6 +334,66 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         title: "Error saving task",
         description: error.message || "Failed to save task",
       });
+      return Promise.reject(error);
+    }
+  };
+  
+  // Helper function to handle subtask operations
+  const handleSubtasks = async (taskId: string, subtasks: Subtask[]) => {
+    try {
+      // Get current subtasks for this task
+      const { data: existingSubtasks, error: fetchError } = await supabase
+        .from('subtasks')
+        .select('id')
+        .eq('task_id', taskId);
+        
+      if (fetchError) throw fetchError;
+      
+      const existingIds = new Set((existingSubtasks || []).map(s => s.id));
+      const newIds = new Set(subtasks.map(s => s.id).filter(id => !id.startsWith('temp-')));
+      
+      // Find subtasks to delete (exist in DB but not in the new list)
+      const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('subtasks')
+          .delete()
+          .in('id', idsToDelete);
+          
+        if (deleteError) throw deleteError;
+      }
+      
+      // Handle creates and updates
+      for (const subtask of subtasks) {
+        if (subtask.id.startsWith('temp-')) {
+          // Create new subtask
+          const { error: createError } = await supabase
+            .from('subtasks')
+            .insert({
+              title: subtask.title,
+              completed: subtask.completed,
+              task_id: taskId,
+            });
+            
+          if (createError) throw createError;
+        } else {
+          // Update existing subtask
+          const { error: updateError } = await supabase
+            .from('subtasks')
+            .update({
+              title: subtask.title,
+              completed: subtask.completed,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', subtask.id);
+            
+          if (updateError) throw updateError;
+        }
+      }
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error handling subtasks:", error);
       return Promise.reject(error);
     }
   };
@@ -315,7 +449,7 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the task.
+              This action cannot be undone. This will permanently delete the task and all its subtasks.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

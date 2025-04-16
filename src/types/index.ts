@@ -16,6 +16,16 @@ export interface Task {
   due_date?: string | null;
   priority?: 'high' | 'medium' | 'low' | null;
   tags?: string[] | null;
+  subtasks?: Subtask[];
+}
+
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+  task_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type TaskStatus = 'todo' | 'progress' | 'completed';

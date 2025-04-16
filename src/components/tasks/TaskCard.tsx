@@ -3,11 +3,12 @@ import { Task } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDistanceToNow, format, isAfter, isBefore, isToday, addDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, GripVertical, Calendar, Tag, AlertCircle } from "lucide-react";
+import { Edit2, Trash2, GripVertical, Calendar, Tag, AlertCircle, CheckSquare } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 interface TaskCardProps {
   task: Task;
@@ -78,6 +79,12 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     }
   };
 
+  // Calculate subtasks progress
+  const subtasks = task.subtasks || [];
+  const completedSubtasks = subtasks.filter(s => s.completed).length;
+  const subtasksProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
+  const allSubtasksCompleted = subtasks.length > 0 && completedSubtasks === subtasks.length;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -93,6 +100,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
         className={cn(
           "cursor-grab bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all",
           isDragging && "opacity-50 rotate-1 shadow-xl",
+          task.status === "completed" && "border-l-4 border-l-completed-foreground",
         )}
       >
         <div className="absolute top-3 right-3 cursor-move text-gray-400 hover:text-gray-600">
@@ -125,6 +133,24 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
             <CardDescription className="text-sm line-clamp-2 mt-1">
               {task.description}
             </CardDescription>
+          )}
+          
+          {subtasks.length > 0 && (
+            <div className="mt-3 space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center text-muted-foreground">
+                  <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                  Subtasks: {completedSubtasks}/{subtasks.length}
+                </span>
+                {task.status === "completed" && !allSubtasksCompleted && (
+                  <span className="text-red-500">All subtasks must be completed</span>
+                )}
+              </div>
+              <Progress value={subtasksProgress} className="h-1.5" color={
+                allSubtasksCompleted ? "bg-green-500" : 
+                subtasksProgress > 0 ? "bg-blue-500" : "bg-gray-200"
+              } />
+            </div>
           )}
           
           {task.due_date && (
