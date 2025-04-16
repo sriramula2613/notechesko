@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
 import { TaskColumn } from "./tasks/TaskColumn";
@@ -197,6 +198,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         const taskWithoutSubtasks = { ...taskData };
         delete taskWithoutSubtasks.subtasks;
         
+        // Check if status has changed
+        const statusChanged = editingTask.status !== taskData.status;
+        
         // Update existing task in Supabase
         const { error } = await supabase
           .from('tasks')
@@ -219,25 +223,63 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         // Handle subtasks - create, update or delete as needed
         await handleSubtasks(editingTask.id, subtasks);
         
-        // Update task locally with the latest subtasks
+        // Update task locally with the latest subtasks and handle column movement
         setColumns(prevColumns => {
-          return prevColumns.map(column => ({
-            ...column,
-            tasks: column.tasks.map(task => 
-              task.id === editingTask.id 
-                ? { 
-                    ...task, 
-                    ...taskData, 
-                    subtasks: subtasks,
-                    status: taskData.status as TaskStatus,
-                    due_date: taskData.due_date || null,
-                    priority: taskData.priority || null,
-                    tags: taskData.tags || [],
-                    updated_at: new Date().toISOString() 
-                  } 
-                : task
-            )
-          }));
+          // Create a deep copy of the columns
+          const updatedColumns = [...prevColumns];
+          
+          if (statusChanged && taskData.status) {
+            // Remove task from its original column
+            const sourceColumnIndex = updatedColumns.findIndex(
+              (col: Column) => col.id === editingTask.status
+            );
+            
+            if (sourceColumnIndex !== -1) {
+              updatedColumns[sourceColumnIndex].tasks = updatedColumns[sourceColumnIndex].tasks.filter(
+                (t: Task) => t.id !== editingTask.id
+              );
+            }
+            
+            // Add task to the destination column
+            const destColumnIndex = updatedColumns.findIndex(
+              (col: Column) => col.id === taskData.status
+            );
+            
+            if (destColumnIndex !== -1) {
+              const updatedTask = { 
+                ...editingTask, 
+                ...taskData, 
+                subtasks: subtasks,
+                status: taskData.status as TaskStatus,
+                due_date: taskData.due_date || null,
+                priority: taskData.priority || null,
+                tags: taskData.tags || [],
+                updated_at: new Date().toISOString() 
+              };
+              updatedColumns[destColumnIndex].tasks.unshift(updatedTask);
+            }
+            
+            return updatedColumns;
+          } else {
+            // Just update the task in its current column
+            return updatedColumns.map(column => ({
+              ...column,
+              tasks: column.tasks.map(task => 
+                task.id === editingTask.id 
+                  ? { 
+                      ...task, 
+                      ...taskData, 
+                      subtasks: subtasks,
+                      status: taskData.status as TaskStatus,
+                      due_date: taskData.due_date || null,
+                      priority: taskData.priority || null,
+                      tags: taskData.tags || [],
+                      updated_at: new Date().toISOString() 
+                    } 
+                  : task
+              )
+            }));
+          }
         });
 
         toast({

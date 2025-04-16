@@ -1,4 +1,3 @@
-
 import { Task } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDistanceToNow, format, isAfter, isBefore, isToday, addDays } from "date-fns";
@@ -24,28 +23,24 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
 
   const timeAgo = formatDistanceToNow(new Date(task.updated_at), { addSuffix: true });
 
-  // Determine background color based on status
   const statusColors = {
     todo: "bg-todo text-todo-foreground",
     progress: "bg-progress text-progress-foreground",
     completed: "bg-completed text-completed-foreground",
   };
 
-  // Status badges
   const statusBadges = {
     todo: "To Do",
     progress: "In Progress",
     completed: "Completed"
   };
   
-  // Priority styling
   const priorityStyles = {
     high: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
     medium: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
     low: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
   };
 
-  // Due date styling based on proximity
   const getDueDateStyles = () => {
     if (!task.due_date) return "";
     
@@ -63,7 +58,6 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     }
   };
   
-  // Get appropriate icon for due date
   const getDueDateIcon = () => {
     if (!task.due_date) return null;
     
@@ -79,11 +73,22 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     }
   };
 
-  // Calculate subtasks progress
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter(s => s.completed).length;
   const subtasksProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
   const allSubtasksCompleted = subtasks.length > 0 && completedSubtasks === subtasks.length;
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit(task);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(task.id);
+  };
 
   return (
     <motion.div
@@ -183,10 +188,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               size="icon" 
               variant="ghost" 
               className="h-7 w-7 rounded-full" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(task);
-              }}
+              onClick={handleEditClick}
             >
               <Edit2 className="h-3.5 w-3.5" />
             </Button>
@@ -194,10 +196,7 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
               size="icon" 
               variant="ghost" 
               className="h-7 w-7 rounded-full text-destructive hover:text-destructive hover:bg-destructive/10" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(task.id);
-              }}
+              onClick={handleDeleteClick}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
