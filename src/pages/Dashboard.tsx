@@ -1,6 +1,7 @@
+
 import { Button } from "@/components/ui/button";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { Column, Subtask } from "@/types";
+import { Column } from "@/types";
 import { LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +30,7 @@ const Dashboard = () => {
 
         if (tasksError) throw tasksError;
         
-        let subtasksData: Subtask[] = [];
+        let subtasksData = [];
         if (tasksData && tasksData.length > 0) {
           const taskIds = tasksData.map(task => task.id);
           
@@ -43,7 +44,7 @@ const Dashboard = () => {
           subtasksData = fetchedSubtasks || [];
         }
         
-        const subtasksByTaskId: Record<string, Subtask[]> = {};
+        const subtasksByTaskId = {};
         subtasksData.forEach(subtask => {
           if (!subtasksByTaskId[subtask.task_id]) {
             subtasksByTaskId[subtask.task_id] = [];
@@ -79,20 +80,16 @@ const Dashboard = () => {
   }, [user]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800"
-    >
+    <div className="flex flex-col flex-1">
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <motion.h1 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary/80"
+            className="text-2xl font-bold"
           >
-            TaskMate
+            Task Board
           </motion.h1>
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
@@ -147,7 +144,7 @@ const Dashboard = () => {
           </motion.div>
         )}
       </main>
-    </motion.div>
+    </div>
   );
 };
 
