@@ -1,16 +1,16 @@
 
 import { useEffect, useState } from "react";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Task } from "@/types";
+import { Task, TaskStatus } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TaskCard } from "@/components/tasks/TaskCard";
+import { TaskCardWrapper } from "@/components/tasks/TaskCardWrapper";
 import { motion } from "framer-motion";
 import { Loader } from "lucide-react";
+import { TaskCalendar } from "@/components/calendar/TaskCalendar";
 
 const CalendarPage = () => {
   const [date, setDate] = useState<Date>(new Date());
@@ -61,11 +61,12 @@ const CalendarPage = () => {
             
           if (subtasksError) throw subtasksError;
           
-          // Attach subtasks to their respective tasks
+          // Attach subtasks to their respective tasks and ensure proper typing
           const tasksWithSubtasks = allTasks.map(task => ({
             ...task,
+            status: task.status as TaskStatus, // Ensure status is properly typed
             subtasks: subtasks?.filter(subtask => subtask.task_id === task.id) || []
-          }));
+          })) as Task[];
           
           setTasks(tasksWithSubtasks);
           updateTasksForSelectedDate(date, tasksWithSubtasks);
@@ -104,31 +105,6 @@ const CalendarPage = () => {
     }
   };
 
-  // Custom day content to show tasks count badges
-  const dayContent = (day: Date) => {
-    const tasksOnDay = tasks.filter(task => {
-      if (!task.due_date) return false;
-      return isSameDay(parseISO(task.due_date), day);
-    });
-
-    const count = tasksOnDay.length;
-    
-    if (count > 0) {
-      return (
-        <div className="relative">
-          <div>{day.getDate()}</div>
-          <Badge 
-            className="absolute -bottom-1 -right-1 h-4 min-w-4 flex items-center justify-center text-[10px] bg-primary"
-          >
-            {count}
-          </Badge>
-        </div>
-      );
-    }
-    
-    return day.getDate();
-  };
-
   return (
     <motion.div 
       className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800"
@@ -154,13 +130,10 @@ const CalendarPage = () => {
                   <Loader className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={handleSelect}
-                  className="rounded-md border w-full max-w-full pointer-events-auto"
-                  dayContent={dayContent}
-                  showOutsideDays
+                <TaskCalendar 
+                  date={date}
+                  onDateSelect={handleSelect}
+                  tasks={tasks}
                 />
               )}
             </CardContent>
@@ -178,7 +151,7 @@ const CalendarPage = () => {
                 {tasksForSelectedDate.length > 0 ? (
                   tasksForSelectedDate.map((task) => (
                     <div key={task.id} className="max-w-full">
-                      <TaskCard task={task} showActions={false} />
+                      <TaskCardWrapper task={task} showActions={false} />
                     </div>
                   ))
                 ) : (

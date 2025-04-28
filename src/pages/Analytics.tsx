@@ -1,10 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { BarChart, LineChart, PieChart } from "@/components/ui/chart";
+import { BarChart, LineChart, PieChart } from "@/components/charts/CustomCharts";
 import { Loader } from "lucide-react";
 import { format, parseISO, subDays } from "date-fns";
 import { motion } from "framer-motion";
@@ -44,7 +43,6 @@ const Analytics = () => {
       try {
         setIsLoading(true);
         
-        // Fetch all tasks for the current user
         const { data: tasks, error } = await supabase
           .from("tasks")
           .select("*")
@@ -68,12 +66,10 @@ const Analytics = () => {
           return;
         }
 
-        // Calculate basic stats
         const completed = tasks.filter(t => t.status === "completed").length;
         const inProgress = tasks.filter(t => t.status === "progress").length;
         const todo = tasks.filter(t => t.status === "todo").length;
         
-        // Calculate tasks by priority
         const tasksByPriority = {
           high: tasks.filter(t => t.priority === "high").length,
           medium: tasks.filter(t => t.priority === "medium").length,
@@ -81,14 +77,12 @@ const Analytics = () => {
           none: tasks.filter(t => !t.priority).length
         };
         
-        // Calculate overdue tasks
         const now = new Date();
         const overdueTasks = tasks.filter(t => {
           if (!t.due_date || t.status === "completed") return false;
           return new Date(t.due_date) < now;
         }).length;
         
-        // Calculate average completion time for completed tasks
         let averageCompletionTime = null;
         const completedTasks = tasks.filter(t => t.status === "completed");
         if (completedTasks.length > 0) {
@@ -98,11 +92,9 @@ const Analytics = () => {
             return sum + (updated.getTime() - created.getTime());
           }, 0);
           
-          // Average time in days
           averageCompletionTime = totalTime / completedTasks.length / (1000 * 60 * 60 * 24);
         }
         
-        // Tasks created by day (last 14 days)
         const last14Days = Array.from({ length: 14 }, (_, i) => {
           const date = subDays(new Date(), i);
           return format(date, "yyyy-MM-dd");
@@ -178,7 +170,6 @@ const Analytics = () => {
           </div>
         ) : stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Key Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle>Task Overview</CardTitle>
@@ -232,7 +223,6 @@ const Analytics = () => {
               </CardContent>
             </Card>
             
-            {/* Status Distribution */}
             <Card>
               <CardHeader>
                 <CardTitle>Task Status Distribution</CardTitle>
@@ -254,7 +244,6 @@ const Analytics = () => {
               </CardContent>
             </Card>
             
-            {/* Task Priority Distribution */}
             <Card>
               <CardHeader>
                 <CardTitle>Task Priority Distribution</CardTitle>
@@ -277,7 +266,6 @@ const Analytics = () => {
               </CardContent>
             </Card>
             
-            {/* Tasks Created Over Time */}
             <Card className="md:col-span-2 lg:col-span-3">
               <CardHeader>
                 <CardTitle>Tasks Created (Last 14 Days)</CardTitle>
