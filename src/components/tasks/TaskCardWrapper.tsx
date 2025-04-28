@@ -9,5 +9,20 @@ interface TaskCardWrapperProps {
 }
 
 export function TaskCardWrapper({ task, showActions = true }: TaskCardWrapperProps) {
-  return <TaskCard task={task} />;
+  // Provide no-op handlers for onEdit and onDelete as required by TaskCardProps
+  const handleEdit = (task: Task) => {
+    // No-op for simplified view
+  };
+
+  const handleDelete = (taskId: string) => {
+    // No-op for simplified view
+  };
+
+  return (
+    <TaskCard 
+      task={task} 
+      onEdit={handleEdit} 
+      onDelete={handleDelete} 
+    />
+  );
 }

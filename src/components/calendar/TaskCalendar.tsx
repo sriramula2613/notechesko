@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Calendar as CalendarPrimitive } from "@/components/ui/calendar";
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { format, isSameDay } from "date-fns";
 import { Task } from "@/types";
@@ -38,16 +38,17 @@ export function TaskCalendar({ date, onDateSelect, tasks }: TaskCalendarProps) {
   };
 
   return (
-    <CalendarPrimitive
+    <Calendar
       mode="single"
       selected={date}
       onSelect={onDateSelect}
       className="rounded-md border w-full max-w-full pointer-events-auto"
       components={{
+        // Use the correct approach to customize the day component
         Day: ({ date: dayDate, ...props }) => (
-          <CalendarPrimitive.Day {...props} date={dayDate}>
+          <div {...props}>
             {renderDay(dayDate)}
-          </CalendarPrimitive.Day>
+          </div>
         )
       }}
       showOutsideDays={true}
